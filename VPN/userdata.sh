@@ -5,7 +5,9 @@ export PATH=/bin:/usr/bin:/sbin:/usr/sbin:/opt/aws/bin
 export OPENVPN=/etc/openvpn
 export EASYRSA_PKI=/var/openvpn/pki
 
-SERVER=`ec2-metadata -v | awk '{ print $2 }'`
+PUBLIC_IP=`ec2-metadata -v | awk '{ print $2 }'`
+
+SERVER=${PUBLIC_IP}
 NUM_CLIENTS=10
 
 OVPN_DIR=/tmp/ovpn
@@ -25,7 +27,10 @@ embed() {
 
 mkovpn() {
     CLIENT=$1
-    OVPN_FILE=${CLIENT}.ovpn
+    PROTO=$2
+    PORT=$3
+
+    OVPN_FILE=${CLIENT}-${PROTO}.ovpn
 
     mkdir -p ${OVPN_DIR}
 
@@ -36,8 +41,8 @@ key-direction 1
 nobind
 persist-key
 persist-tun
-proto udp
-remote ${SERVER} 1194
+proto ${PROTO}
+remote ${SERVER} ${PORT}
 remote-cert-tls server
 resolv-retry infinite
 verb 1
@@ -82,7 +87,7 @@ cd `dirname $(rpm -ql easy-rsa | grep easyrsa)`
 ##################################################
 # Generate server cert and key
 
-./easyrsa --batch build-server-full ${SERVER} nopass
+./easyrsa --batch build-server-full ${PUBLIC_IP} nopass
 
 
 ##################################################
@@ -100,8 +105,8 @@ openvpn --genkey --secret ta.key
 
 ln -s ${EASYRSA_PKI}/dh.pem dh2048.pem
 ln -s ${EASYRSA_PKI}/ca.crt
-ln -s ${EASYRSA_PKI}/issued/${SERVER}.crt server.crt
-ln -s ${EASYRSA_PKI}/private/${SERVER}.key server.key
+ln -s ${EASYRSA_PKI}/issued/${PUBLIC_IP}.crt server.crt
+ln -s ${EASYRSA_PKI}/private/${PUBLIC_IP}.key server.key
 
 cp `rpm -ql openvpn | grep /server.conf` .
 
@@ -112,6 +117,7 @@ push "dhcp-option DNS 1.0.0.1"
 push "redirect-gateway def1 bypass-dhcp"
 EOF
 
+sed 's/port 1194/port 443/;s/proto udp/proto tcp/;s/^explicit-exit-notify/;explicit-exit-notify/' server.conf > server-tcp.conf
 popd
 
 
@@ -120,7 +126,8 @@ popd
 
 for N in $(seq 1 ${NUM_CLIENTS}); do
     ./easyrsa --batch build-client-full client${N} nopass
-    mkovpn client${N}
+    mkovpn client${N} udp 1194
+    mkovpn client${N} tcp 443
 done
 
 
