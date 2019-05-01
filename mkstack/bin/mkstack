@@ -1,0 +1,106 @@
+#!/usr/local/bin/ruby
+
+require "logger"
+require "optparse"
+require "mkstack"
+
+
+##################################################
+# Main
+
+# Define logger
+$logger = Logger.new(STDERR)
+$logger.level = Logger::WARN
+$logger.formatter = proc { |s, d, p, m|
+  "[%s] %5s [%5s] - %s\n" % [ d.strftime("%Y-%m-%d %H:%M:%S"), s, caller(4, 1).first.split(":")[1], m ]
+}
+
+
+# Default options
+options = {}
+options[:erb] = true
+options[:format] = "json"
+
+
+# Command line options
+opts = OptionParser.new do |p|
+  desc_padding = " " * (p.summary_indent.length + p.summary_width)
+
+  p.banner = "Usage: #{p.program_name} [ options ] file1 [ file2... ]"
+
+  # Help
+  p.on("-h", "--help", "Display this message") { puts opts ; exit }
+  p.separator(" ")
+
+  # Verbosity
+  p.on("-d", "--debug",   "Show debug messages")         { $logger.level = Logger::DEBUG }
+  p.on("-v", "--verbose", "Be verbose")                  { $logger.level = Logger::INFO }
+  p.on("-q", "--quiet",   "Only show errors")            { $logger.level = Logger::ERROR }
+  p.on("-s", "--silient", "Don't show any log messages") { $logger.level = Logger::FATAL }
+  p.separator(" ")
+
+  # Output
+  p.on("-o", "--output=FILE",   "Print final template to FILE") { |x| options[:save] = x }
+  p.on("%s Use '-' for stdout" % [ desc_padding ])
+  p.on("-f", "--format=FORMAT", [ "json", "yaml" ], "Print as FORMAT") { |x| options[:format] = x }
+  p.on("%s Supported formats: json (default), yaml" % [ desc_padding ])
+  p.separator(" ")
+
+  # Operations
+  p.on("--erb", "--[no-]erb", "Perform ERB processing (default is true)") { |x| options[:erb] = x }
+  p.on("--validate", "Call ValidateTemplate after merging") { options[:validate] = true }
+end
+
+files = opts.parse!.uniq
+opts.parse "--help" if files.count == 0
+
+template = MkStack::Template.new(options[:format])
+
+
+# Merge files
+files.each do |file|
+  begin
+    Dir.chdir(File.dirname(file)) { template.merge(File.basename(file), options[:erb]) }
+  rescue KeyError => e
+    $logger.warn { "#{file}: already parsed" }
+  rescue Exception => e
+    $logger.error { e.message }
+  end
+end
+
+
+# Check limits
+$logger.debug { "Checking limits" }
+
+template.sections.each do |name, section|
+  $logger.warn { "#{name} limit exceeded: (#{section.length} > #{section.limit})" } if section.exceeds_limit?
+end
+
+$logger.warn { "At least one Resources member must be defined" } if template["Resources"].length == 0
+$logger.warn { "Template too large (#{template.length} > #{template.limit})" } if template.exceeds_limit?
+
+
+# Validate template
+if options[:validate] then
+  begin
+    $logger.info { "Validating #{template.format} template" }
+
+    $logger.debug { template.validate }
+  rescue Exception => e
+    $logger.error { e.message }
+  end
+end
+
+
+# Save template
+if options[:save] then
+  begin
+    $stdout = File.new(options[:save], File::CREAT | File::WRONLY) unless options[:save] == "-"
+
+    $logger.info { "Saving #{template.format} to #{$stdout.path}" } unless $stdout == STDOUT
+
+    puts template.pp
+  rescue Exception => e
+    $logger.error { e.message }
+  end
+end
