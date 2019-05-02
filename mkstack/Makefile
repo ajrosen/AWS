@@ -1,7 +1,7 @@
 APP=mkstack
 VERSION=1.0.0
 
-all: uninstall gem install
+all: uninstall gem install doc
 user-all: uninstall gem user-install
 
 gem:
@@ -15,3 +15,6 @@ user-install:
 
 uninstall:
 	-gem uninstall $(APP) -ax
+
+doc:
+	ri -T -f markdown MkStack > README.md
