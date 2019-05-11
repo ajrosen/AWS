@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/mkstack.svg)](https://badge.fury.io/rb/mkstack)
+
 Merge multiple CloudFormation template files into a single template.
 Each file may be in either JSON or YAML format.
 
