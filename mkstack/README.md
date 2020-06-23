@@ -1,5 +1,7 @@
-[![Gem Version](https://badge.fury.io/rb/mkstack.svg)](https://badge.fury.io/rb/mkstack)
+# MkStack
 
+(from gem mkstack-1.1.0)
+---
 Merge multiple CloudFormation template files into a single template.
 Each file may be in either JSON or YAML format.
 
@@ -68,3 +70,24 @@ defined in one file to be referenced in subsequent files.
     }
 
 Note that foo.yaml is processed *before* bar.json.
+
+## Passing arguments to ERB
+
+Any command line arguments following "---" are added to an Array called
+**argv**, which can be referenced in your ERB code.
+
+### foo.yaml
+
+    <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
+
+$ mkstack foo.yaml --- a 2 test
+
+Array with 3 items: ["a", "2", "test"]
+
+## See Also
+
+    MkStack::Template
+    MkStack::Section
+
+
+---

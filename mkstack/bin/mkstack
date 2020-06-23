@@ -15,12 +15,11 @@ $logger.formatter = proc { |s, d, p, m|
   "[%s] %5s [%5s] - %s\n" % [ d.strftime("%Y-%m-%d %H:%M:%S"), s, caller(4, 1).first.split(":")[1], m ]
 }
 
-
 # Default options
 options = {}
 options[:erb] = true
 options[:format] = "json"
-
+options[:erb_argv] = []
 
 # Command line options
 opts = OptionParser.new do |p|
@@ -36,7 +35,7 @@ opts = OptionParser.new do |p|
   p.on("-d", "--debug",   "Show debug messages")         { $logger.level = Logger::DEBUG }
   p.on("-v", "--verbose", "Be verbose")                  { $logger.level = Logger::INFO }
   p.on("-q", "--quiet",   "Only show errors")            { $logger.level = Logger::ERROR }
-  p.on("-s", "--silient", "Don't show any log messages") { $logger.level = Logger::FATAL }
+  p.on("-s", "--silent",  "Don't show any log messages") { $logger.level = Logger::FATAL }
   p.separator(" ")
 
   # Output
@@ -49,25 +48,42 @@ opts = OptionParser.new do |p|
   # Operations
   p.on("--erb", "--[no-]erb", "Perform ERB processing (default is true)") { |x| options[:erb] = x }
   p.on("--validate", "Call ValidateTemplate after merging") { options[:validate] = true }
+  p.separator(" ")
+
+  # ERB options
+  p.on("---", "Marks end of mkstack options") { p.terminate("---") }
+  p.on("%s Remaining arguments are available to ERB as an Array argv" % [ desc_padding ])
 end
 
-files = opts.parse!.uniq
-opts.parse "--help" if files.count == 0
+# Separate files from ERB arguments
+args = opts.parse!
 
-template = MkStack::Template.new(options[:format])
+if args.index("---")
+  files = args[0..(args.index("---") - 1)]
+  options[:erb_argv] = args[(args.index("---") + 1)..]
+else
+  files = args
+end
 
+# At least one file is required
+files.uniq!
+opts.parse "--help" if ((files.count == 0) or (files[0].eql?("---")))
 
 # Merge files
+template = MkStack::Template.new(options[:format], options[:erb_argv])
+
 files.each do |file|
   begin
-    Dir.chdir(File.dirname(file)) { template.merge(File.basename(file), options[:erb]) }
+    Dir.chdir(File.dirname(file)) {
+      $logger.info { "Loading #{file}" }
+      template.merge(File.basename(file), options[:erb])
+    }
   rescue KeyError => e
     $logger.warn { "#{file}: already parsed" }
   rescue Exception => e
     $logger.error { e.message }
   end
 end
-
 
 # Check limits
 $logger.debug { "Checking limits" }
@@ -79,18 +95,16 @@ end
 $logger.warn { "At least one Resources member must be defined" } if template["Resources"].length == 0
 $logger.warn { "Template too large (#{template.length} > #{template.limit})" } if template.exceeds_limit?
 
-
 # Validate template
 if options[:validate] then
   begin
     $logger.info { "Validating #{template.format} template" }
 
-    $logger.debug { template.validate }
+    template.validate
   rescue Exception => e
     $logger.error { e.message }
   end
 end
-
 
 # Save template
 if options[:save] then

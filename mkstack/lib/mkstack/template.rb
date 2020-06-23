@@ -10,20 +10,20 @@ module MkStack
   class Template
     attr_reader :sections, :limit, :format
 
-    def initialize(format = "json")
+    def initialize(format = "json", argv = nil)
       @format = format
 
       @sections = {
         "AWSTemplateFormatVersion" => Section.new("AWSTemplateFormatVersion", String, nil),
         "Description" => Section.new("Description", String, 1024),
 
-        "Conditions"  => Section.new("Conditions",  Hash, nil),
-        "Mappings"    => Section.new("Mappings",    Hash, 100),
-        "Metadata"    => Section.new("Metadata",    Hash, nil),
-        "Outputs"     => Section.new("Outputs",     Hash, 60),
-        "Parameters"  => Section.new("Parameters",  Hash, 60),
-        "Resources"   => Section.new("Resources",   Hash, nil),
-        "Transforms"  => Section.new("Transforms",  Hash, nil),
+        "Conditions" => Section.new("Conditions", Hash, nil),
+        "Mappings"   => Section.new("Mappings",   Hash, 100),
+        "Metadata"   => Section.new("Metadata",   Hash, nil),
+        "Outputs"    => Section.new("Outputs",    Hash, 60),
+        "Parameters" => Section.new("Parameters", Hash, 60),
+        "Resources"  => Section.new("Resources",  Hash, nil),
+        "Transform"  => Section.new("Transform",  Hash, nil),
       }
       @limit = 51200
 
@@ -36,7 +36,7 @@ module MkStack
       @binding = binding
 
       # See add_domain_types
-      @yaml_domain = "mlfs.org,2019"
+      @yaml_domain = "mlfs.org,2020"
       @global_tag = "tag:#{@yaml_domain}:"
     end
 
@@ -157,20 +157,15 @@ module MkStack
         "If",
         "Not",
         "Or",
-      ].each do |function|
-        YAML::add_domain_type(@yaml_domain, function) do |type, val|
-          @format = "yaml"
-          "#{type} #{val}"
-        end
-      end
-
-      # The syntax for !Sub requires double-quotes around Strings
-      functions = [
         "Sub",
       ].each do |function|
         YAML::add_domain_type(@yaml_domain, function) do |type, val|
-          @format = "yaml"
-          val.is_a?(String)? "#{type} \"#{val}\"" : "#{type} #{val}"
+          unless @format.eql?("yaml")
+            $logger.debug "Setting output to YAML for short form intrinsic function !#{function}"
+            @format = "yaml"
+          end
+
+          (function.eql?("Sub") and val.is_a?(String))? "#{type} \"#{val}\"" : "#{type} #{val}"
         end
       end
     end
