@@ -80,9 +80,8 @@ Any command line arguments following "---" are added to an Array called
 
     <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
 
-$ mkstack foo.yaml --- a 2 test
-
-Array with 3 items: ["a", "2", "test"]
+    $ mkstack foo.yaml --- a 2 test
+    Array with 3 items: ["a", "2", "test"]
 
 ## See Also
 
