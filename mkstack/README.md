@@ -1,6 +1,6 @@
 # MkStack
 
-(from gem mkstack-1.1.0)
+(from gem mkstack-1.1.1)
 ---
 Merge multiple CloudFormation template files into a single template.
 Each file may be in either JSON or YAML format.

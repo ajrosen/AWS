@@ -1,5 +1,5 @@
 APP=mkstack
-VERSION=1.1.0
+VERSION=1.1.1
 
 all: uninstall gem install doc
 user-all: uninstall gem user-install

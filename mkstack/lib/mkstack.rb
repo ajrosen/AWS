@@ -80,9 +80,8 @@ called <b>argv</b>, which can be referenced in your ERB code.
 
   <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
 
-$ mkstack foo.yaml --- a 2 test
-
-Array with 3 items: ["a", "2", "test"]
+  $ mkstack foo.yaml --- a 2 test
+  Array with 3 items: ["a", "2", "test"]
 
 == See Also
 
