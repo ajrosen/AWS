@@ -71,6 +71,19 @@ tags defined in one file to be referenced in subsequent files.
 
 Note that foo.yaml is processed <i>before</i> bar.json.
 
+== Passing arguments to ERB
+
+Any command line arguments following "---" are added to an Array
+called <b>argv</b>, which can be referenced in your ERB code.
+
+=== foo.yaml
+
+  <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
+
+$ mkstack foo.yaml --- a 2 test
+
+Array with 3 items: ["a", "2", "test"]
+
 == See Also
 
   MkStack::Template
