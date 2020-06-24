@@ -17,4 +17,4 @@ uninstall:
 	-gem uninstall $(APP) -ax
 
 doc:
-	ri -T -f markdown MkStack > README.md
+	yri -T MkStack > README.md
