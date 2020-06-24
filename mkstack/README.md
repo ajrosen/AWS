@@ -1,14 +1,14 @@
+[![Gem Version](https://badge.fury.io/rb/mkstack.svg)](https://badge.fury.io/rb/mkstack)
+
 # MkStack
 
-(from gem mkstack-1.1.1)
----
 Merge multiple CloudFormation template files into a single template.
 Each file may be in either JSON or YAML format.
 
 Get started with _template = MkStack::Template.new_, or use the command
 line tool *mkstack*.
 
-# ERB
+## ERB
 
 By default all files are run through an ERB (Embedded RuBy) processor.
 
@@ -20,31 +20,31 @@ By default all files are run through an ERB (Embedded RuBy) processor.
 It is safe to leave this enabled.  If a file doesn't have any ERB tags
 it is passed through untouched.
 
-## Include
+### Include
 
 MkStack searches each file for a section named **Include**, which should
 be a list of filenames.  These function the same as adding the listed
 files on the command line.
 
-### JSON
+#### JSON
 
     "Include" : [
       "foo.yaml",
       "bar.json"
     ]
 
-### YAML
+#### YAML
 
     Include:
       - foo.yaml
       - bar.json
 
-## ERB and Include working together
+### ERB and Include working together
 
 MkStack uses a single *binding* for all files.  This allows ERB tags
 defined in one file to be referenced in subsequent files.
 
-### foo.yaml
+#### foo.yaml
 
     Include:
       - bar.json
@@ -56,7 +56,7 @@ defined in one file to be referenced in subsequent files.
        }
     %>
 
-### bar.json
+#### bar.json
 
     {
       "Resources" : {
@@ -74,7 +74,7 @@ defined in one file to be referenced in subsequent files.
 
 Note that foo.yaml is processed *before* bar.json.
 
-# Command line tool
+## Command line tool
 
     Usage: mkstack [ options ] file1 [ file2... ]
         -h, --help                       Display this message
@@ -95,16 +95,16 @@ Note that foo.yaml is processed *before* bar.json.
             ---                          Marks end of mkstack options
                                          Remaining arguments are available to ERB as Array argv
 
-## Passing arguments to ERB
+### Passing arguments to ERB
 
 Any command line arguments following "---" are added to an Array called
 *argv*, which can be referenced in your ERB code.
 
-### foo.yaml
+#### foo.yaml
 
     <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
 
-##### 
+###### 
 
     $ mkstack foo.yaml --- a 2 test
     Array with 3 items: ["a", "2", "test"]
