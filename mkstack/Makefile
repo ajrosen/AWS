@@ -17,4 +17,5 @@ uninstall:
 	-gem uninstall $(APP) -ax
 
 doc:
-	yri -T MkStack > README.md
+	# Replace U+2010 with ASCII 45
+	ri -f markdown -T MkStack | sed 's/‐/-/g' > README.md

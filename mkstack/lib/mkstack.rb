@@ -1,3 +1,4 @@
+# coding: utf-8
 require_relative "mkstack/template"
 
 =begin rdoc
@@ -89,10 +90,10 @@ Note that foo.yaml is processed <i>before</i> bar.json.
       -f, --format=FORMAT              Print as FORMAT
                                        Supported formats: json (default), yaml
 
-          --erb, --[no-]erb            Perform ERB processing (default is true)
-          --validate                   Call ValidateTemplate after merging
+          ‐‐erb, --[no-]erb            Perform ERB processing (default is true)
+          ‐‐validate                   Call ValidateTemplate after merging
 
-          ---                          Marks end of mkstack options
+          ‐‐‐                          Marks end of mkstack options
                                        Remaining arguments are available to ERB as Array argv
 
 == Passing arguments to ERB
