@@ -1,3 +1,4 @@
+# coding: utf-8
 require_relative "mkstack/template"
 
 =begin rdoc
@@ -5,9 +6,10 @@ require_relative "mkstack/template"
 Merge multiple CloudFormation template files into a single template.
 Each file may be in either JSON or YAML format.
 
-Get started with <i>template = MkStack::Template.new</i>
+Get started with <i>template = MkStack::Template.new</i>, or use the
+command line tool <i>mkstack</i>.
 
-== ERB
+= ERB
 
 By default all files are run through an ERB (Embedded RuBy) processor.
  
@@ -62,7 +64,9 @@ tags defined in one file to be referenced in subsequent files.
       "sg": {
         "Type" : "AWS::EC2::SecurityGroup",
         "Properties" : {
-          "GroupDescription" : { "Fn::Sub" : "Security Group for ${application}" }
+          "GroupDescription" : {
+               "Fn::Sub" : "Security Group for ${application}"
+          }
           <%= tags_json %>
         }
       }
@@ -70,6 +74,27 @@ tags defined in one file to be referenced in subsequent files.
   }
 
 Note that foo.yaml is processed <i>before</i> bar.json.
+
+= Command line tool
+
+  Usage: mkstack [ options ] file1 [ file2... ]
+      -h, --help                       Display this message
+
+      -d, --debug                      Show debug messages
+      -v, --verbose                    Be verbose
+      -q, --quiet                      Only show errors
+      -s, --silent                     Don't show any log messages
+
+      -o, --output=FILE                Print final template to FILE
+                                       Use '-' for stdout
+      -f, --format=FORMAT              Print as FORMAT
+                                       Supported formats: json (default), yaml
+
+          ‐‐erb, --[no-]erb            Perform ERB processing (default is true)
+          ‐‐validate                   Call ValidateTemplate after merging
+
+          ‐‐‐                          Marks end of mkstack options
+                                       Remaining arguments are available to ERB as Array argv
 
 == Passing arguments to ERB
 
@@ -79,14 +104,10 @@ called <b>argv</b>, which can be referenced in your ERB code.
 === foo.yaml
 
   <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
-
+=====
   $ mkstack foo.yaml --- a 2 test
   Array with 3 items: ["a", "2", "test"]
 
-== See Also
-
-  MkStack::Template
-  MkStack::Section
 =end
 
 module MkStack
