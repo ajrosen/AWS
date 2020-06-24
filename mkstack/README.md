@@ -1,11 +1,12 @@
 # MkStack
 
-(from gem mkstack-1.1.1)
+(from gem mkstack-1.1.2)
 ---
 Merge multiple CloudFormation template files into a single template.
 Each file may be in either JSON or YAML format.
 
-Get started with *template = MkStack::Template.new*
+Get started with *template = MkStack::Template.new*, or use the command
+line tool *mkstack*.
 
 ## ERB
 
@@ -71,22 +72,20 @@ defined in one file to be referenced in subsequent files.
 
 Note that foo.yaml is processed *before* bar.json.
 
-## Passing arguments to ERB
+## Command line tool
 
-Any command line arguments following "---" are added to an Array called
-**argv**, which can be referenced in your ERB code.
+    Usage: mkstack [ options ] file1 [ file2... ]
+        -h, --help                       Display this message
 
-### foo.yaml
+        -d, --debug                      Show debug messages
+        -v, --verbose                    Be verbose
+        -q, --quiet                      Only show errors
+        -s, --silent                     Don't show any log messages
 
-    <% puts "#{argv.class} with #{argv.length} items: #{argv}" %>
-
-    $ mkstack foo.yaml --- a 2 test
-    Array with 3 items: ["a", "2", "test"]
-
-## See Also
-
-    MkStack::Template
-    MkStack::Section
+        -o, --output=FILE                Print final template to FILE
+                                         Use '-' for stdout
+        -f, --format=FORMAT              Print as FORMAT
+                                         Supported formats: json (default), yaml
 
 
 ---
