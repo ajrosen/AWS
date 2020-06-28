@@ -1,0 +1,11 @@
+#!/bin/bash -
+
+export AWS_DEFAULT_OUTPUT=text
+
+[ "${1}" == "aws" ] && shift
+
+for AWS_DEFAULT_REGION in $(aws --query 'Regions[*].RegionName' ec2 describe-regions); do
+    echo "${AWS_DEFAULT_REGION}"
+    aws $*
+    echo
+done

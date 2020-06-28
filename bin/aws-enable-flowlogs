@@ -1,0 +1,23 @@
+#!/bin/bash -
+
+export AWS_DEFAULT_OUTPUT=text
+
+ACCOUNT=$(aws --query 'Account' sts get-caller-identity)
+[ "${ACCOUNT}" == "" ] && exit
+
+for AWS_DEFAULT_REGION in $(aws --query 'Regions[*].RegionName' ec2 describe-regions); do
+    export AWS_DEFAULT_REGION
+
+    for VPC in $(aws ec2 describe-vpcs --query 'Vpcs[*].VpcId' --output text); do
+	echo "${AWS_DEFAULT_REGION}: ${VPC}"
+
+	aws ec2 create-flow-logs \
+	    --query 'FlowLogIds' \
+	    --resource-ids '["'${VPC}'"]' \
+	    --traffic-type "ACCEPT" \
+	    --resource-type "VPC" \
+	    --log-destination-type "cloud-watch-logs" \
+	    --log-destination "arn:aws:logs:${AWS_DEFAULT_REGION}:${ACCOUNT}:log-group:vpc-flowlogs" \
+	    --deliver-logs-permission-arn "arn:aws:iam::${ACCOUNT}:role/aws-service-role/cloudwatch-crossaccount.amazonaws.com/AWSServiceRoleForCloudWatchCrossAccount"
+    done
+done

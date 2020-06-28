@@ -1,0 +1,26 @@
+#!/bin/bash -
+
+export AWS_DEFAULT_OUTPUT=json
+
+aws support describe-trusted-advisor-checks --language en > checks.json
+CHECKS=($(jq -r '.checks[].id' < checks.json))
+
+echo "${#CHECKS[@]} checks"
+
+echo '{ "results": [' > results.json
+echo '{ "summaries": [' > summaries.json
+
+for CHECK in ${CHECKS[*]}; do
+    aws support describe-trusted-advisor-check-result --check-id ${CHECK} >> results.json
+    echo "," >> results.json
+
+    aws support describe-trusted-advisor-check-summaries --check-id ${CHECK} >> summaries.json
+    echo "," >> summaries.json
+
+    echo -n .
+done
+
+echo '{} ] }' >> results.json
+echo '{} ] }' >> summaries.json
+
+echo

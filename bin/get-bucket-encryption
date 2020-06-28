@@ -1,0 +1,14 @@
+#!/bin/sh -
+
+exec 2>&-
+
+export AWS_DEFAULT_OUTPUT=json
+
+declare -a BUCKETS
+
+BUCKETS=`aws --query 'Buckets[].Name' s3api list-buckets | jq -r '.[]'`
+
+for BUCKET in ${BUCKETS}; do
+    ENCRYPTION=`aws --query 'ServerSideEncryptionConfiguration.Rules[].ApplyServerSideEncryptionByDefault.SSEAlgorithm' s3api get-bucket-encryption --bucket ${BUCKET} | jq -r '.[]'`
+    echo ${BUCKET}: ${ENCRYPTION}
+done

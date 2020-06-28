@@ -1,0 +1,18 @@
+#!/bin/bash -
+
+export AWS_DEFAULT_OUTPUT=json
+
+MFA_ARN=$(aws iam list-mfa-devices --query 'MFADevices[0].SerialNumber' --output text)
+
+TOKEN_CODE=$1
+if [ "${TOKEN_CODE}" == "" ]; then
+    read -e -n 6 -p "Enter code for ${MFA_ARN}: " TOKEN_CODE
+fi
+
+CREDENTIALS=$(aws --query Credentials sts get-session-token --serial-number ${MFA_ARN} --token-code ${TOKEN_CODE})
+if [ $? != 0 ]; then
+    echo "Failed"
+    exit
+fi
+
+aws-configure-profile mfa "${CREDENTIALS}"

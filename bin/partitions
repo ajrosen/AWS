@@ -1,0 +1,4 @@
+#!/usr/bin/ruby
+
+[ "aws-sdk-core", "yaml" ].each { |x| require x }
+Aws.partitions.each { |p| puts p.to_yaml }

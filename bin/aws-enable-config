@@ -1,0 +1,91 @@
+#!/bin/bash -
+
+##################################################
+# Enable AWS Config in every region
+
+
+##################################################
+# AWS CLI configuration
+
+export AWS_DEFAULT_OUTPUT=text
+
+ACCOUNT=$(aws --query 'Account' sts get-caller-identity)
+[ "${ACCOUNT}" == "" ] && exit
+
+
+##################################################
+# Global variables
+
+BUCKET="config-bucket-${ACCOUNT}"
+TOPIC_NAME=config-topic
+GLOBAL_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+
+
+##################################################
+# S3
+
+echo -n "S3: ${BUCKET}"
+aws --region ${GLOBAL_REGION} s3api create-bucket --bucket ${BUCKET} > /dev/null
+
+LOG_DELIVERY="uri=http://acs.amazonaws.com/groups/s3/LogDelivery"
+
+echo -n ", ACL"
+aws s3api put-bucket-acl --bucket ${BUCKET} \
+    --grant-write ${LOG_DELIVERY} \
+    --grant-read ${LOG_DELIVERY} \
+    --grant-read-acp ${LOG_DELIVERY}
+
+echo -n ", policy"
+aws s3api put-bucket-policy --bucket ${BUCKET} --policy \
+    '{ "Version": "2012-10-17", "Statement": [ { "Sid": "AWSConfigBucketPermissionsCheck", "Effect": "Allow", "Principal": { "Service": "config.amazonaws.com" }, "Action": "s3:GetBucketAcl", "Resource": "arn:aws:s3:::'${BUCKET}'" }, { "Sid": "AWSConfigBucketDelivery", "Effect": "Allow", "Principal": { "Service": "config.amazonaws.com" }, "Action": "s3:PutObject", "Resource": "arn:aws:s3:::'${BUCKET}'/AWSLogs/'${ACCOUNT}'/Config/*", "Condition": { "StringEquals": { "s3:x-amz-acl": "bucket-owner-full-control" } } } ] }'
+
+echo ; echo
+
+
+##################################################
+# IAM
+
+echo -n "IAM: "
+
+aws iam create-service-linked-role --aws-service-name config.amazonaws.com
+ROLE_ARN=$(aws --query 'Role.Arn' iam get-role --role-name AWSServiceRoleForConfig)
+
+echo ${ROLE_ARN} ; echo
+
+
+##################################################
+# Repeat in every region
+
+for AWS_DEFAULT_REGION in $(aws --query 'Regions[*].RegionName' ec2 describe-regions); do
+    export AWS_DEFAULT_REGION
+
+    echo "${AWS_DEFAULT_REGION}"
+
+    # Variables
+    TOPIC_ARN=arn:aws:sns:${AWS_DEFAULT_REGION}:${ACCOUNT}:${TOPIC_NAME}
+    GLOBAL=false
+    if [ "${AWS_DEFAULT_REGION}" == "${GLOBAL_REGION}" ]; then GLOBAL=true; fi
+
+    # SNS
+    echo -n "SNS: topic"
+    aws sns create-topic --name ${TOPIC_NAME}
+
+    echo -n ", attributes"
+    aws sns set-topic-attributes --topic-arn ${TOPIC_ARN} --attribute-name Policy --attribute-value \
+	'{"Version":"2012-10-17","Statement":[{"Sid":"__default_statement_ID","Effect":"Allow","Principal":{"AWS":"*"},"Action":["sns:GetTopicAttributes","sns:SetTopicAttributes","sns:AddPermission","sns:RemovePermission","sns:DeleteTopic","sns:Subscribe","sns:ListSubscriptionsByTopic","sns:Publish"],"Resource":"arn:aws:sns:'${AWS_DEFAULT_REGION}':'${ACCOUNT}':config-topic","Condition":{"StringEquals":{"AWS:SourceOwner":"'${ACCOUNT}'"}}},{"Sid":"AWSConfigSNSPolicy20180529","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::'${ACCOUNT}':role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig"},"Action":"sns:Publish","Resource":"arn:aws:sns:'${AWS_DEFAULT_REGION}':'${ACCOUNT}':config-topic"}]}'
+
+    echo ; echo
+
+    # Config
+    echo -n "Config: put-configuration-recorder"
+    aws configservice put-configuration-recorder --configuration-recorder name=default,roleARN=${ROLE_ARN} \
+	--recording-group allSupported=true,includeGlobalResourceTypes=${GLOBAL}
+
+    echo -n ", put-delivery-channel"
+    aws configservice put-delivery-channel --delivery-channel name=default,s3BucketName=${BUCKET},snsTopicARN=${TOPIC_ARN}
+ 
+    echo -n ", start-configuration-recorder"
+    aws configservice start-configuration-recorder --configuration-recorder default
+
+    echo ; echo
+done
