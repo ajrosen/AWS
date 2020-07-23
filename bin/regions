@@ -1,11 +1,11 @@
 #!/bin/bash -
 
-export AWS_DEFAULT_OUTPUT=text
+# Example: regions ec2 describe-security-groups
 
 [ "${1}" == "aws" ] && shift
+[ "${*}" == "" ] && exit
 
-for AWS_DEFAULT_REGION in $(aws --query 'Regions[*].RegionName' ec2 describe-regions); do
+for AWS_DEFAULT_REGION in $(aws --output text --query 'Regions[*].RegionName' ec2 describe-regions); do
     echo "${AWS_DEFAULT_REGION}"
-    aws $*
-    echo
+    aws $* > ${AWS_DEFAULT_REGION}.${AWS_DEFAULT_OUTPUT}
 done
