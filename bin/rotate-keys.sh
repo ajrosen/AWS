@@ -18,7 +18,9 @@ rotate() {
     echo ${ACCESS_KEY_ID}
 }
 
-for AWS_PROFILE in $(aws configure list-profiles); do
+for AWS_PROFILE in ${*:-$(aws configure list-profiles)}; do
+    echo $AWS_PROFILE
+
     OLD_KEY=$(aws configure get aws_access_key_id)
 
     if [ "${OLD_KEY}" != "" ] && [ "$(aws configure get aws_session_token)" == "" ]; then
