@@ -1,4 +1,4 @@
-#!/bin/sh -
+#!/bin/bash -
 
 ###########################################################################
 # Enable CloudTrail in all regions.  Command line options let you set the
@@ -55,10 +55,10 @@ done
 ############################################################
 # Get list of regions
 
-REGIONS=`aws --output text ec2 describe-regions | awk '{ print $NF }'`
+REGIONS=$(aws --output text ec2 describe-regions | awk '{ print $NF }')
 
-for REGION in ${REGIONS}; do
-    # Set options for trail
+for AWSD_DEFAULT_REGION in ${REGIONS}; do
+    # Set default options for trail
     OPTIONS="--name ${NAME} --s3-bucket-name ${BUCKET} --s3-key-prefix ${PREFIX} "
 
     # Enable global service events only in the "global" region
@@ -69,6 +69,6 @@ for REGION in ${REGIONS}; do
     fi
 
     echo "Creating trail in ${REGION}"
-    aws --region ${REGION} cloudtrail create-trail ${OPTIONS} > /dev/null
-    aws --region ${REGION} cloudtrail start-logging --name ${NAME} > /dev/null
+    aws cloudtrail create-trail ${OPTIONS} > /dev/null
+    aws cloudtrail start-logging --name ${NAME} > /dev/null
 done

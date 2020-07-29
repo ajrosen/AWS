@@ -1,0 +1,38 @@
+#!/bin/bash -
+
+cd /tmp
+
+export AWS_DEFAULT_OUTPUT=text
+
+
+##################################################
+# Get Security Groups that are in use by...
+
+echo "sentinel" > sg-used
+
+# Instances
+aws ec2 describe-instances --query 'Reservations[].Instances[].SecurityGroups[].GroupId' | fmt -1 >> sg-used
+
+# ELBs
+aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].SecurityGroups' | fmt -1 >> sg-used
+
+# RDS
+aws rds describe-db-instances --query 'DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId' | fmt -1 >> sg-used 
+
+
+##################################################
+# Get all Security Groups
+
+aws ec2 describe-security-groups --query 'SecurityGroups[].GroupId' | fmt -1 > sg-all
+
+
+##################################################
+# Get more detailed information on unused Security Groups
+
+grep -v -f sg-used sg-all | xargs -t aws --output json ec2 describe-security-groups --group-ids
+
+
+##################################################
+# Clean up
+
+rm -f sg-used sg-all
