@@ -60,7 +60,7 @@ args = opts.parse!
 
 if args.index("---")
   files = args[0..(args.index("---") - 1)]
-  options[:erb_argv] = args[(args.index("---") + 1)..]
+  options[:erb_argv] = args[(args.index("---") + 1)..nil]
 else
   files = args
 end
