@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name	= "mkstack"
-  s.version	= "1.1.1"
+  s.version	= "1.1.3"
   s.summary	= "Merge multiple CloudFormation template files into a single template"
   s.description	= <<-EOF
 Merge multiple CloudFormation template files into a single template.  Each file may be in either JSON or YAML format.  By default all files are run through an ERB (Embedded RuBy) processor.
