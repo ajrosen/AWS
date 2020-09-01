@@ -6,6 +6,30 @@ require "yaml"
 
 module MkStack
   ##################################################
+  # A class to represent undefined local tags.
+  #
+  # CloudFormation uses <b>!</b> to denote the YAML short form of
+  # intrinsic functions, which is the same prefix YAML uses for local
+  # tags.  The default handler strips undefined local tags, leaving
+  # just the value.
+  #
+  # Loading a YAML file will force the output to be in YAML format.
+
+  class IntrinsicShort
+    def init_with(coder)
+      @coder = coder
+    end
+
+    def encode_with(coder)
+      coder.tag = @coder.tag
+
+      coder.map = @coder.map if @coder.type == :map
+      coder.scalar = @coder.scalar if @coder.type == :scalar
+      coder.seq = @coder.seq if @coder.type == :seq
+    end
+  end
+
+  ##################################################
   # A CloudFormation template
   class Template
     attr_reader :sections, :limit, :format
@@ -34,10 +58,6 @@ module MkStack
       # every time we load a file.  This allows ERB code in one file to
       # be referenced in another.
       @binding = binding
-
-      # See add_domain_types
-      @yaml_domain = "mlfs.org,2020"
-      @global_tag = "tag:#{@yaml_domain}:"
     end
 
     # Shorthand accessor for template sections
@@ -60,8 +80,9 @@ module MkStack
         cfn = JSON.load(contents)
       rescue Exception => e
         # Try YAML
-        add_domain_types
-        cfn = YAML.load(contents)
+        add_tags
+        cfn = YAML.safe_load(contents, [IntrinsicShort])
+        @format = "yaml"
       end
 
       # Merge sections that are present in the file
@@ -90,9 +111,7 @@ module MkStack
       when "json"
         to_hash.to_json
       when "yaml"
-        # Strip enclosing quotes around tags and revert tags to their short form
-        # And keep Psych from splitting "long" lines
-        to_hash.to_yaml({ line_width: -1 }).gsub(/"(#{@global_tag}[^"]+?)"/, '\1').gsub("#{@global_tag}", "!")
+        to_hash.to_yaml({ line_width: -1 }) # Keep Psych from splitting "long" lines
       else
         to_hash
       end
@@ -127,20 +146,9 @@ module MkStack
 
 
     #########################
-    # Define YAML domains to handle CloudFormation intrinsic
-    # functions.
-    #
-    # CloudFormation uses <b>!</b> to denote the YAML short form of
-    # intrinsic functions, which is the same prefix YAML uses for
-    # local tags.  The default handler strips undefined local tags,
-    # leaving just the value.
-    #
-    # This puts the tags back, but in global tag format.  The global
-    # tag prefix is converted back to <b>!</b> on output.
-    #
-    # Using the short form will force the output to be in YAML format.
-    def add_domain_types
-      functions = [
+    # List of intrinsic functions that look like undefined local tags
+    def add_tags
+      [
         "Base64",
         "Cidr",
         "FindInMap",
@@ -159,14 +167,7 @@ module MkStack
         "Or",
         "Sub",
       ].each do |function|
-        YAML::add_domain_type(@yaml_domain, function) do |type, val|
-          unless @format.eql?("yaml")
-            $logger.debug "Setting output to YAML for short form intrinsic function !#{function}"
-            @format = "yaml"
-          end
-
-          (function.eql?("Sub") and val.is_a?(String))? "#{type} \"#{val}\"" : "#{type} #{val}"
-        end
+        YAML::add_tag("!#{function}", IntrinsicShort)
       end
     end
   end
