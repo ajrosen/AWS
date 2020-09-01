@@ -1,8 +1,10 @@
-#!/usr/local/bin/ruby
+#!/usr/bin/env ruby
 
 require "logger"
 require "optparse"
-require "mkstack"
+require_relative "../lib/mkstack"
+
+version = "1.1.4"
 
 
 ##################################################
@@ -29,6 +31,7 @@ opts = OptionParser.new do |p|
 
   # Help
   p.on("-h", "--help", "Display this message") { puts opts ; exit }
+  p.on("--version", "Show version") { puts version ; exit }
   p.separator(" ")
 
   # Verbosity
@@ -75,7 +78,6 @@ template = MkStack::Template.new(options[:format], options[:erb_argv])
 files.each do |file|
   begin
     Dir.chdir(File.dirname(file)) {
-      $logger.info { "Loading #{file}" }
       template.merge(File.basename(file), options[:erb])
     }
   rescue KeyError => e
