@@ -78,6 +78,7 @@ Note that foo.yaml is processed *before* bar.json.
 
     Usage: mkstack [ options ] file1 [ file2... ]
         -h, --help                       Display this message
+            --version                    Show version
 
         -d, --debug                      Show debug messages
         -v, --verbose                    Be verbose
