@@ -1,4 +1,7 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
-[ "aws-sdk-core", "yaml" ].each { |x| require x }
-Aws.partitions.each { |p| puts p.to_yaml }
+require 'aws-sdk-core'
+
+x = []
+Aws::Partitions.each { |p| p.regions.each { |r| x.push({ partition: p.name, region: r.name, services: r.services.to_a }) } }
+puts x.to_json
