@@ -42,11 +42,11 @@ module MkStack
         "Description" => Section.new("Description", String, 1024),
 
         "Conditions" => Section.new("Conditions", Hash, nil),
-        "Mappings"   => Section.new("Mappings",   Hash, 100),
+        "Mappings"   => Section.new("Mappings",   Hash, 200),
         "Metadata"   => Section.new("Metadata",   Hash, nil),
-        "Outputs"    => Section.new("Outputs",    Hash, 60),
-        "Parameters" => Section.new("Parameters", Hash, 60),
-        "Resources"  => Section.new("Resources",  Hash, nil),
+        "Outputs"    => Section.new("Outputs",    Hash, 200),
+        "Parameters" => Section.new("Parameters", Hash, 200),
+        "Resources"  => Section.new("Resources",  Hash, 500),
         "Transform"  => Section.new("Transform",  Hash, nil),
       }
       @limit = 51200
