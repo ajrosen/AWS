@@ -4,6 +4,9 @@ NOW=$(date +%s)
 MAX=90
 
 rotate() {
+    ACCESS_KEY_ID=""
+    SECRET_ACCESS_KEY=""
+
     # Create new key
     NEW_KEY=$(2>&- aws --output json iam create-access-key --query AccessKey)
     if [ "${NEW_KEY}" == "" ]; then
@@ -37,7 +40,7 @@ for AWS_PROFILE in ${*:-$(aws configure list-profiles)}; do
 	if [ "${USED}" == "" ]; then echo "can't get key"; continue; fi
 
 	# Check age of key
-	if [ $(( ${NOW} - $(date -jf %FT%T%z ${USED} +%s) )) -gt $(( ${MAX} * 86400 )) ]; then
+	if [ $(( ${NOW} - $(date -d ${USED} +%s) )) -gt $(( ${MAX} * 86400 )) ]; then
 	    echo -n "${KEY} - "
 	    rotate ${KEY}
 	    echo "${ACCESS_KEY_ID}"
