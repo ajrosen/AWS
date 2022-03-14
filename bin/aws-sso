@@ -1,0 +1,117 @@
+#!/usr/local/bin/bash -
+
+[ "${1}" == "--profile" ] && shift
+
+AWS_PROFILE=${1:-${AWS_PROFILE}}
+AWS_DEFAULT_OUTPUT=json
+
+login() {
+    aws sso login
+}
+
+accessToken() {
+    jq -r '.accessToken // empty' $(find . -type f -exec grep -q "${URL}" {} \; -print)
+}
+
+listAccounts() {
+    aws --query 'sort_by(accountList, &accountName)[].{Id: accountId, Name: accountName}' sso list-accounts --access-token ${TOKEN}
+}
+
+listAccountRoles() {
+    aws --query 'roleList[].roleName' sso list-account-roles --access-token ${TOKEN} --account-id ${ID}
+}
+
+getRoleCredentials() {
+    aws --query 'roleCredentials' sso get-role-credentials --access-token ${TOKEN} --account-id ${ID} --role-name ${ROLE}
+}
+
+
+##################################################
+# Login
+
+# Confirm SSO configuration
+URL=$(aws configure get sso_start_url)
+if [ "${URL}" == "" ]; then
+    echo "${AWS_PROFILE} is not configured for SSO"
+    exit 0
+fi
+
+# Check for cached credentials
+mkdir -p ~/.aws/sso/cache
+cd  ~/.aws/sso/cache || exit -1
+
+CACHE=""
+while [ "${CACHE}" == "" ]; do
+    CACHE=$(find . -type f -exec grep -q "${URL}" {} \; -print)
+    [ "${CACHE}" == "" ] && login
+done
+
+# Check expiration
+AUTH=254
+while [ ${AUTH} -ne 0 ]; do
+    EXPIRES=$(jq -r '.expiresAt // empty' ${CACHE})
+    [ $(gdate -d ${EXPIRES} +%s) -ge $(gdate +%s) ] || login
+    AUTH=$?
+done
+
+EXPIRES=$(jq -r '.expiresAt // empty' ${CACHE})
+
+
+##################################################
+# Get access token
+
+TOKEN="$(accessToken)"
+if [ "${TOKEN}" == "" ]; then
+    echo "Could not find access token"
+    exit -1
+fi
+
+
+##################################################
+# Get account
+
+readarray -t ACCOUNTS < <(listAccounts | jq -r '.[] | "\(.Id) (\(.Name))"')
+
+if [ ${#ACCOUNTS[*]} == 1 ]; then
+    ACCOUNT=${ACCOUNTS[0]}
+else
+    IFS=$'\n'
+    PS3=$'\nChoose account> '
+
+    select ACCOUNT in ${ACCOUNTS[*]}; do [ "${ACCOUNT}" != "" ] && break; done
+    echo
+fi
+
+ID=$(echo ${ACCOUNT} | cut -d' ' -f1)
+NAME=$(echo ${ACCOUNT} | cut -d' ' -f2-)
+
+
+##################################################
+# Get role
+
+readarray -t ROLES < <(listAccountRoles | jq -r '"\(.[])"')
+
+if [ ${#ROLES[*]} == 1 ]; then
+    ROLE=${ROLES[0]}
+else
+    IFS=$'\n'
+    PS3=$'\nChoose role> '
+
+    select ROLE in ${ROLES[*]}; do [ "${ROLE}" != "" ] && break; done
+    echo
+fi
+
+
+##################################################
+# Get credentials
+
+CREDS=$(getRoleCredentials)
+
+export AWS_PROFILE=${AWS_PROFILE}-sso
+
+aws configure set aws_access_key_id $(jq -rn "${CREDS} | .accessKeyId")
+aws configure set aws_secret_access_key $(jq -rn "${CREDS} | .secretAccessKey")
+aws configure set aws_session_token $(jq -rn "${CREDS} | .sessionToken")
+
+echo "Saved credentials for ${ROLE} ${NAME} as ${AWS_PROFILE}"
+echo "Expires at $(gdate -d ${EXPIRES})"
