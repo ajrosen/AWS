@@ -77,15 +77,12 @@ echo
 ##################################################
 # Create Internet Gateway
 
-echo "Creating Internet Gateways"
+echo "Creating Internet Gateway"
 
 IGW_ID=$(aws --query InternetGateway.InternetGatewayId ec2 create-internet-gateway)
 aws ec2 create-tags --resources ${IGW_ID} --tags Key=Name,Value=${NAME}
 
-EIGW_ID=$(aws --query EgressOnlyInternetGateway.EgressOnlyInternetGatewayId ec2 create-egress-only-internet-gateway --vpc-id ${VPC_ID})
-
 echo ${IGW_ID}
-echo ${EIGW_ID}
 echo
 
 
