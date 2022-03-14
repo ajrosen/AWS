@@ -36,7 +36,7 @@ for AWS_PROFILE in ${*:-$(aws configure list-profiles)}; do
 	echo -n "Checking ${AWS_PROFILE}: "
 
 	# Get key creation date
-	CREATED=$(2>&- aws --output text iam list-access-keys --query 'AccessKeyMetadata[].CreateDate' | sed 's/:\([0-9][0-9]\)$/\1/')
+	CREATED=$(2>&- aws --output text iam list-access-keys --query 'AccessKeyMetadata[].CreateDate' --max-items 1 --no-paginate)
 	if [ "${CREATED}" == "" ]; then echo "can't get key"; continue; fi
 
 	# Check age of key
