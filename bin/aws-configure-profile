@@ -3,6 +3,6 @@
 ACCOUNT="$1" ; shift
 CREDENTIALS="$*"
 
-aws --profile ${ACCOUNT} configure set aws_access_key_id $(jq -rn "${CREDENTIAL} | .AccessKeyId")
+aws --profile ${ACCOUNT} configure set aws_access_key_id $(jq -rn "${CREDENTIALS} | .AccessKeyId")
 aws --profile ${ACCOUNT} configure set aws_secret_access_key $(jq -rn "${CREDENTIALS} | .SecretAccessKey")
 aws --profile ${ACCOUNT} configure set aws_session_token $(jq -rn "${CREDENTIALS} | .SessionToken")
