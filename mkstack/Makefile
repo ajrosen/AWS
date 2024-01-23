@@ -1,8 +1,8 @@
 APP=mkstack
 VERSION=1.2.1
 
-all: uninstall gem install doc
 user-all: uninstall gem user-install
+system-all: uninstall gem install doc
 
 gem:
 	gem build $(APP).gemspec -q
