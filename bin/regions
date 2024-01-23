@@ -6,13 +6,13 @@
 
 # Show all region names and descriptions in all partitions if no command given
 if [ "${*}" == "" ]; then
-    ruby -e 'puts "Partition,Region,Description"' \
-	 -e "require 'aws-sdk-core'" \
+    ruby -e "require 'aws-sdk-core'" \
+	 -e 'puts "Partition,Region,Description"' \
 	 -e 'Aws::Partitions.each { |p| p.regions.each { |r| puts "\"#{p.name}\",\"#{r.name}\",\"#{r.description}\"" } }'
     exit 0
 fi
 
 for AWS_DEFAULT_REGION in $(aws --output text --query 'Regions[*].RegionName' ec2 describe-regions); do
     echo "${AWS_DEFAULT_REGION}"
-    aws $* > ${AWS_DEFAULT_REGION}.${AWS_DEFAULT_OUTPUT}
+    aws "${@}" > "${AWS_DEFAULT_REGION}.${AWS_DEFAULT_OUTPUT}"
 done
