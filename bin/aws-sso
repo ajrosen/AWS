@@ -5,23 +5,32 @@
 AWS_PROFILE=${1:-${AWS_PROFILE}}
 AWS_DEFAULT_OUTPUT=json
 
+log() {
+    echo $* > /dev/null
+}
+
 login() {
+    log "Logging into ${AWS_PROFILE}"
     aws sso login
 }
 
 accessToken() {
+    log "Getting access token for ${URL}"
     jq -r '.accessToken // empty' $(find . -type f -exec grep -q "${URL}" {} \; -print)
 }
 
 listAccounts() {
+    log "Listing accounts for ${AWS_PROFILE}"
     aws --query 'sort_by(accountList, &accountName)[].{Id: accountId, Name: accountName}' sso list-accounts --access-token ${TOKEN}
 }
 
 listAccountRoles() {
+    log "Listing roles for ${ID}"
     aws --query 'roleList[].roleName' sso list-account-roles --access-token ${TOKEN} --account-id ${ID}
 }
 
 getRoleCredentials() {
+    log "Getting credentials for ${ROLE}"
     aws --query 'roleCredentials' sso get-role-credentials --access-token ${TOKEN} --account-id ${ID} --role-name ${ROLE}
 }
 
@@ -32,7 +41,7 @@ getRoleCredentials() {
 # Confirm SSO configuration
 URL=$(aws configure get sso_start_url)
 if [ "${URL}" == "" ]; then
-    echo "${AWS_PROFILE} is not configured for SSO"
+    log "${AWS_PROFILE} is not configured for SSO"
     exit 0
 fi
 
@@ -62,7 +71,7 @@ EXPIRES=$(jq -r '.expiresAt // empty' ${CACHE})
 
 TOKEN="$(accessToken)"
 if [ "${TOKEN}" == "" ]; then
-    echo "Could not find access token"
+    log "Could not find access token"
     exit -1
 fi
 
