@@ -1,34 +1,39 @@
 #!/bin/bash -
 
-# Create a VPC with private and public subnets
+# shellcheck disable=2207
 
-# Subnets
-# Security Groups
-# Network ACLs
-# Internet Gateways
-# Egress Only Internet Gateways
+# Create a VPC with public and private subnets
+
+# VPC
+# Internet Gateway
+# S3 endpoint
 # Route Tables
-# Network Interfaces
-# Peering Connections
-# Endpoints
+# Default Route
+# Public Subnets
+# Private Subnets
 
 
 ##################################################
 # Defaults
 
-AWS_DEFAULT_OUTPUT=text
+export AWS_DEFAULT_OUTPUT=text
 
 # VPC
 NET_BLOCK=172.16
 HOST_BLOCK=0.0
 VPC_NETMASK=16
 
-CIDR_BLOCK=${NET_BLOCK}.${HOST_BLOCK}/${VPC_NETMASK}
-
 # Subnet
 NUM_SUBNETS=max
 SUBNET_NETMASK=24
     
+
+usage() {
+    echo "Options: --profile --region --cidr --subnets --name"
+    echo "Defaults: --profile ${AWS_PROFILE} --region ${AWS_DEFAULT_REGION} --cidr ${NET_BLOCK} --subnets ${NUM_SUBNETS} --name \"${NAME}\""
+    exit
+}
+
 
 ##################################################
 # Command line options
@@ -40,10 +45,14 @@ while [ $# -gt 0 ]; do
 	(--cidr)	NET_BLOCK=$2;	shift;;
 	(--subnets)	NUM_SUBNETS=$2;	shift;;
 	(--name)	NAME=$2;	shift;;
+	(-h)		usage;;
+	(--help)	usage;
     esac
 
     shift
 done
+
+CIDR_BLOCK=${NET_BLOCK}.${HOST_BLOCK}/${VPC_NETMASK}
 
 
 ##################################################
@@ -51,10 +60,10 @@ done
 
 AZ=($(aws ec2 describe-availability-zones --query 'AvailabilityZones[*].ZoneName'))
 
-if [ ${NUM_SUBNETS} == "max" ]; then NUM_SUBNETS=${#AZ[@]}; fi
+if [ "${NUM_SUBNETS}" == "max" ]; then NUM_SUBNETS=${#AZ[@]}; fi
 
 # Can't create more subnets than availability zones
-if [ ${NUM_SUBNETS} -gt ${#AZ[@]} ]; then
+if [ "${NUM_SUBNETS}" -gt ${#AZ[@]} ]; then
     >&2 echo "Too many subnets (${NUM_SUBNETS}): Only ${#AZ[@]} in ${AWS_DEFAULT_REGION}"
     NUM_SUBNETS=${#AZ[@]}
 fi
@@ -64,13 +73,13 @@ fi
 # Create VPC
 
 echo "Creating ${CIDR_BLOCK} in ${AWS_DEFAULT_REGION}"
-VPC_ID=$(aws --query Vpc.VpcId ec2 create-vpc --cidr-block ${CIDR_BLOCK})
-aws ec2 create-tags --resources ${VPC_ID} --tags Key=Name,Value=${NAME}
+VPC_ID=$(aws --query Vpc.VpcId ec2 create-vpc --cidr-block "${CIDR_BLOCK}")
+aws ec2 create-tags --resources "${VPC_ID}" --tags Key=Name,Value="${NAME}"
 
-aws ec2 modify-vpc-attribute --vpc-id ${VPC_ID} --enable-dns-support
-aws ec2 modify-vpc-attribute --vpc-id ${VPC_ID} --enable-dns-hostnames
+aws ec2 modify-vpc-attribute --vpc-id "${VPC_ID}" --enable-dns-support
+aws ec2 modify-vpc-attribute --vpc-id "${VPC_ID}" --enable-dns-hostnames
 
-echo ${VPC_ID}
+echo "${VPC_ID}"
 echo
 
 
@@ -80,9 +89,9 @@ echo
 echo "Creating Internet Gateway"
 
 IGW_ID=$(aws --query InternetGateway.InternetGatewayId ec2 create-internet-gateway)
-aws ec2 create-tags --resources ${IGW_ID} --tags Key=Name,Value=${NAME}
+aws ec2 create-tags --resources "${IGW_ID}" --tags Key=Name,Value="${NAME}"
 
-echo ${IGW_ID}
+echo "${IGW_ID}"
 echo
 
 
@@ -91,7 +100,7 @@ echo
 
 echo "Attaching ${IGW_ID} to ${VPC_ID}"
 
-aws ec2 attach-internet-gateway --internet-gateway-id ${IGW_ID} --vpc-id ${VPC_ID}
+aws ec2 attach-internet-gateway --internet-gateway-id "${IGW_ID}" --vpc-id "${VPC_ID}"
 
 echo
 
@@ -101,14 +110,14 @@ echo
 
 echo "Creating Route Tables"
 
-RT_ID_PRV=$(aws ec2 --query RouteTable.RouteTableId create-route-table --vpc-id ${VPC_ID})
-aws ec2 create-tags --resources ${RT_ID_PRV} --tags Key=Name,Value=${NAME}-public
+RT_ID_PUB=$(aws ec2 --query RouteTable.RouteTableId create-route-table --vpc-id "${VPC_ID}")
+aws ec2 create-tags --resources "${RT_ID_PUB}" --tags Key=Name,Value="${NAME}"-public
 
-RT_ID_PUB=$(aws ec2 --query RouteTable.RouteTableId create-route-table --vpc-id ${VPC_ID})
-aws ec2 create-tags --resources ${RT_ID_PUB} --tags Key=Name,Value=${NAME}-private
+RT_ID_PRV=$(aws ec2 --query RouteTable.RouteTableId create-route-table --vpc-id "${VPC_ID}")
+aws ec2 create-tags --resources "${RT_ID_PRV}" --tags Key=Name,Value="${NAME}"-private
 
-echo ${RT_ID_PRV} private
-echo ${RT_ID_PUB} public
+echo "${RT_ID_PUB}" public
+echo "${RT_ID_PRV}" private
 echo
 
 
@@ -117,8 +126,17 @@ echo
 
 echo "Adding default route for ${IGW_ID}"
 
-aws ec2 create-route --route-table-id ${RT_ID_PUB} --destination-cidr-block 0.0.0.0/0 --gateway-id ${IGW_ID} >/dev/null
-aws ec2 create-route --route-table-id ${RT_ID_PRV} --destination-cidr-block 0.0.0.0/0 --gateway-id ${IGW_ID} >/dev/null
+aws ec2 create-route --route-table-id "${RT_ID_PUB}" --destination-cidr-block 0.0.0.0/0 --gateway-id "${IGW_ID}" >/dev/null
+
+echo
+
+
+##################################################
+# Add S3 endpoint
+
+echo "Adding S3 endpoint"
+
+aws ec2 create-vpc-endpoint --vpc-id "${VPC_ID}" --service-name com.amazonaws."${AWS_DEFAULT_REGION}".s3
 
 echo
 
@@ -128,16 +146,17 @@ echo
 
 echo "Creating ${NUM_SUBNETS} public subnets"
     
-for (( SUBNET=0; ${SUBNET} < ${NUM_SUBNETS}; SUBNET++ )) do
-    SUBNET_ID=$(aws --query Subnet.SubnetId ec2 create-subnet --vpc-id ${VPC_ID} --availability-zone ${AZ[${SUBNET}]} --cidr-block ${NET_BLOCK}.${SUBNET}.0/${SUBNET_NETMASK})
-    aws ec2 create-tags --resources ${SUBNET_ID} --tags Key=Name,Value=${NAME}-public${SUBNET}
+for (( SUBNET=0; SUBNET < NUM_SUBNETS; SUBNET++ )) do
+    SUBNET_ID=$(aws --query Subnet.SubnetId ec2 create-subnet --vpc-id "${VPC_ID}" --availability-zone "${AZ[${SUBNET}]}" --cidr-block "${NET_BLOCK}".${SUBNET}.0/${SUBNET_NETMASK})
+    aws ec2 create-tags --resources "${SUBNET_ID}" --tags Key=Name,Value="${NAME}"-public${SUBNET}
 
-    aws ec2 modify-subnet-attribute --subnet-id ${SUBNET_ID} --map-public-ip-on-launch
+    # Make public
+    aws ec2 modify-subnet-attribute --subnet-id "${SUBNET_ID}" --map-public-ip-on-launch
 
     # Associate Subnet with Route Table
-    aws ec2 associate-route-table --subnet-id ${SUBNET_ID} --route-table-id ${RT_ID_PUB} >/dev/null
+    aws ec2 associate-route-table --subnet-id "${SUBNET_ID}" --route-table-id "${RT_ID_PUB}" >/dev/null
 
-    echo ${SUBNET_ID} in ${AZ[${SUBNET}]}
+    echo "${SUBNET_ID}" in "${AZ[${SUBNET}]}"
 done
 
 echo
@@ -148,12 +167,12 @@ echo
 
 echo "Creating ${NUM_SUBNETS} private subnets"
 
-for (( SUBNET=0; ${SUBNET} < ${NUM_SUBNETS}; SUBNET++ )) do
-    SUBNET_ID=$(aws --query Subnet.SubnetId ec2 create-subnet --vpc-id ${VPC_ID} --availability-zone ${AZ[${SUBNET}]} --cidr-block ${NET_BLOCK}.$((SUBNET+NUM_SUBNETS)).0/${SUBNET_NETMASK})
-    aws ec2 create-tags --resources ${SUBNET_ID} --tags Key=Name,Value=${NAME}-private${SUBNET}
+for (( SUBNET=0; SUBNET < NUM_SUBNETS; SUBNET++ )) do
+    SUBNET_ID=$(aws --query Subnet.SubnetId ec2 create-subnet --vpc-id "${VPC_ID}" --availability-zone "${AZ[${SUBNET}]}" --cidr-block "${NET_BLOCK}".$((SUBNET+NUM_SUBNETS)).0/${SUBNET_NETMASK})
+    aws ec2 create-tags --resources "${SUBNET_ID}" --tags Key=Name,Value="${NAME}"-private${SUBNET}
 
     # Associate Subnet with Route Table
-    aws ec2 associate-route-table --subnet-id ${SUBNET_ID} --route-table-id ${RT_ID_PRV} >/dev/null
+    aws ec2 associate-route-table --subnet-id "${SUBNET_ID}" --route-table-id "${RT_ID_PRV}" >/dev/null
 
-    echo ${SUBNET_ID} in ${AZ[${SUBNET}]}
+    echo "${SUBNET_ID}" in "${AZ[${SUBNET}]}"
 done
