@@ -1,17 +1,19 @@
 #!/bin/sh -
 
+# shellcheck disable=2181
+
 export AWS_DEFAULT_OUTPUT=json
 
-ACCOUNT=${1:-535151000817}
-ROLE_NAME=${2:-role/AdministratorAccess}
+ACCOUNT=${1:-0}
+ROLE_NAME=${2:-AdministratorAccess}
 
-ROLE_ARN=arn:aws:iam::${ACCOUNT}:role/AdministratorAccess
-ROLE_SESSION_NAME="${USER}"
+ROLE_ARN=arn:aws:iam::${ACCOUNT}:role/${ROLE_NAME}
+ROLE_SESSION_NAME="${3:-${USER}}"
 
-CREDENTIALS=$(aws --query Credentials sts assume-role --role-arn ${ROLE_ARN} --role-session-name "${ROLE_SESSION_NAME}")
+CREDENTIALS=$(aws --query Credentials sts assume-role --role-arn "${ROLE_ARN}" --role-session-name "${ROLE_SESSION_NAME}")
 if [ $? != 0 ]; then
     echo "Failed"
     exit
 fi
 
-aws-configure-profile ${ACCOUNT} "${CREDENTIALS}"
+aws-configure-profile "${ACCOUNT}" "${CREDENTIALS}"
