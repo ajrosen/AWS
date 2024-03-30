@@ -2,6 +2,9 @@
 
 PRODUCTS=("AmazonS3" "AmazonEC2")
 
+mkdir -p data
+cd data
+
 echo "aws ec2 describe-instance-types"
 aws ec2 describe-instance-types > instance-types.json
 jq -r 'include "AWS/Pricing/EC2Info"; . | @csv "\(cols)", @csv "\(rows)"' instance-types.json | sed 's/\./","/' > instance-types.csv
