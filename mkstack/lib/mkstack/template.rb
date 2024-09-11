@@ -81,7 +81,7 @@ module MkStack
       rescue Exception => e
         # Try YAML
         add_tags
-        cfn = YAML.safe_load(contents, [IntrinsicShort])
+        cfn = YAML.safe_load(contents, permitted_classes: [IntrinsicShort])
         @format = "yaml"
       end
 
