@@ -16,6 +16,10 @@ user-install:
 uninstall:
 	-gem uninstall $(APP) -ax
 
+push:
+	gem push $(APP)-$(VERSION).gem
+	fury push $(APP)-$(VERSION).gem
+
 doc:
 	# Replace U+2010 with ASCII 45
 	ri -f markdown -T MkStack | sed 's/‐/-/g' > README.md
