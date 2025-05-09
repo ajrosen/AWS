@@ -17,9 +17,16 @@ module MkStack
 
     # Merge or override a section snippet
     def merge(contents)
-      raise TypeError.new("#{contents.class} != #{@contents.class}") if contents.class != @contents.class
-
+      # Hashes get merged
       return @contents.merge!(contents) if @contents.respond_to?(:merge!)
+
+      # Arrays get concatenated or pushed
+      if @contents.respond_to?(:push)
+        return @contents.concat(contents) if contents.respond_to?(:push)
+        return @contents.push(contents)
+      end
+
+      # Strings get copied
       @contents = contents
     end
 
