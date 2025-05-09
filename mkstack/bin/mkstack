@@ -4,7 +4,7 @@ require "logger"
 require "optparse"
 require_relative "../lib/mkstack"
 
-version = "1.2.0"
+version = "1.3.1"
 
 
 ##################################################
@@ -14,7 +14,11 @@ version = "1.2.0"
 $logger = Logger.new(STDERR)
 $logger.level = Logger::WARN
 $logger.formatter = proc { |s, d, p, m|
-  "[%s] %5s [%5s] - %s\n" % [ d.strftime("%Y-%m-%d %H:%M:%S"), s, caller(4, 1).first.split(":")[1], m ]
+  x = caller(4, 1)[0]
+  line = x.split(':')[1]
+  file = x.split(':')[0].split('/')[-1]
+  func = x.split("'")[-1]
+  "[%s] %5s [%-12s] [%4d] %s: %s\n" % [ d.strftime("%Y-%m-%d %H:%M:%S"), s, file, line, func, m ]
 }
 
 # Default options
@@ -111,7 +115,11 @@ end
 # Save template
 if options[:save] then
   begin
-    $stdout = File.new(options[:save], File::CREAT | File::WRONLY) unless options[:save] == "-"
+    unless options[:save] == '-'
+      f = File.new(options[:save], File::CREAT | File::WRONLY)
+      f.truncate(0)
+      $stdout = f
+    end
 
     $logger.info { "Saving #{template.format} to #{$stdout.path}" } unless $stdout == STDOUT
 
