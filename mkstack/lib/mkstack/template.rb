@@ -1,8 +1,8 @@
-require_relative "section"
+require_relative 'section'
 
-require "erb"
-require "json"
-require "yaml"
+require 'erb'
+require 'json'
+require 'yaml'
 
 module MkStack
   ##################################################
@@ -14,7 +14,6 @@ module MkStack
   # just the value.
   #
   # Loading a YAML file will force the output to be in YAML format.
-
   class IntrinsicShort
     def init_with(coder)
       @coder = coder
@@ -34,22 +33,23 @@ module MkStack
   class Template
     attr_reader :sections, :limit, :format
 
-    def initialize(format = "json", argv = nil)
+    def initialize(format = 'json', argv = nil)
       @format = format
 
       @sections = {
-        "AWSTemplateFormatVersion" => Section.new("AWSTemplateFormatVersion", String, nil),
-        "Description" => Section.new("Description", String, 1024),
+        'AWSTemplateFormatVersion' => Section.new('AWSTemplateFormatVersion', String, nil),
+        'Description' => Section.new('Description', String, 1024),
 
-        "Conditions" => Section.new("Conditions", Hash, nil),
-        "Mappings"   => Section.new("Mappings",   Hash, 200),
-        "Metadata"   => Section.new("Metadata",   Hash, nil),
-        "Outputs"    => Section.new("Outputs",    Hash, 200),
-        "Parameters" => Section.new("Parameters", Hash, 200),
-        "Resources"  => Section.new("Resources",  Hash, 500),
-        "Transform"  => Section.new("Transform",  Hash, nil),
+        'Conditions' => Section.new('Conditions', Hash,  nil),
+        'Mappings'   => Section.new('Mappings',   Hash,  200),
+        'Metadata'   => Section.new('Metadata',   Hash,  nil),
+        'Outputs'    => Section.new('Outputs',    Hash,  200),
+        'Parameters' => Section.new('Parameters', Hash,  200),
+        'Resources'  => Section.new('Resources',  Hash,  500),
+        'Transform'  => Section.new('Transform',  Array, nil),
+        'Rules'      => Section.new('Rules',      Hash,  nil),
       }
-      @limit = 51200
+      @limit = 51_200
 
       # Keep track of parsed files to avoid loops
       @parsed = {}
@@ -61,13 +61,19 @@ module MkStack
     end
 
     # Shorthand accessor for template sections
-    def [](section); @sections[section]; end
+    def [](section)
+      @sections[section]
+    end
 
     # Return the length of the entire template
-    def length; to_json.to_s.length; end
+    def length
+      to_json.to_s.length
+    end
 
     # Check if the template exceeds the AWS limit
-    def exceeds_limit?; limit && length > limit; end
+    def exceeds_limit?
+      limit && length > limit
+    end
 
 
     #########################
@@ -78,28 +84,36 @@ module MkStack
       begin
         # Try JSON
         cfn = JSON.load(contents)
-      rescue Exception => e
+      rescue Exception => _e
         # Try YAML
         add_tags
         cfn = YAML.safe_load(contents, permitted_classes: [IntrinsicShort])
-        @format = "yaml"
+        @format = 'yaml'
+      end
+
+      # Check if there were any sections
+      unless cfn
+        $logger.debug { "no content in #{file}" }
+        return
       end
 
       # Merge sections that are present in the file
-      @sections.each { |name, section| section.merge(cfn[name]) if cfn[name] }
+      @sections.each do |name, section|
+        section.merge(cfn[name]) if cfn[name]
+      end
 
       # Look for Includes and merge them
       # Files are Included relative to the file with the Include directive
-      cfn["Include"].each do |file|
+      cfn['Include'].each do |file|
         Dir.chdir(File.dirname(file)) { self.merge(File.basename(file), erb) }
-      end if cfn["Include"]
+      end if cfn['Include']
     end
 
 
     #########################
     # Call ValidateTemplate[https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_ValidateTemplate.html]
     def validate
-      require "aws-sdk-cloudformation"
+      require 'aws-sdk-cloudformation'
       Aws::CloudFormation::Client.new.validate_template({ template_body: pp })
     end
 
@@ -108,9 +122,9 @@ module MkStack
     # Format contents
     def pp
       case @format
-      when "json"
+      when 'json'
         to_hash.to_json
-      when "yaml"
+      when 'yaml'
         to_hash.to_yaml({ line_width: -1 }) # Keep Psych from splitting "long" lines
       else
         to_hash
@@ -149,23 +163,26 @@ module MkStack
     # List of intrinsic functions that look like undefined local tags
     def add_tags
       [
-        "Base64",
-        "Cidr",
-        "FindInMap",
-        "GetAtt",
-        "GetAZs",
-        "ImportValue",
-        "Join",
-        "Ref",
-        "Select",
-        "Split",
-        "Transform",
-        "And",
-        "Equals",
-        "If",
-        "Not",
-        "Or",
-        "Sub",
+        'Base64',
+        'Cidr',
+        'FindInMap',
+        'ForEach',
+        'GetAtt',
+        'GetAZs',
+        'ImportValue',
+        'Join',
+        'Length',
+        'Ref',
+        'Select',
+        'Split',
+        'ToJsonString',
+        'Transform',
+        'And',
+        'Equals',
+        'If',
+        'Not',
+        'Or',
+        'Sub',
       ].each do |function|
         YAML::add_tag("!#{function}", IntrinsicShort)
       end
