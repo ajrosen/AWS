@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+
+# Trigger an EventBridge Schedule "now" by cloning a new Schedule that
+# executes two minutes from now
+
+import os
+import sys
+import datetime
+import json
+import botocore
+import boto3
+
+FUTURE = 120                    # Seconds
+
+
+##################################################
+# Check usage
+
+if len(sys.argv) < 2:
+    print(f"Usage: {os.path.basename(sys.argv[0])} schedule_name")
+    print()
+
+    exit(0)
+else:
+    schedule_name = sys.argv[1]
+
+
+##################################################
+# Get schedule
+
+try:
+    if 'debug' in globals() and debug:
+        with open(f'/Users/ajr/resp.json', 'r') as file:
+            old_schedule = json.loads(file.read())
+    else:
+        old_schedule = boto3.client('scheduler').get_schedule(
+            Name = schedule_name
+        )
+
+except botocore.exceptions.ClientError as e:
+    code = e.response['Error']['Code']
+    msg = e.response['Error']['Message']
+
+    if code == 'ResourceNotFoundException':
+        print(f"An error occurred ({code}) when calling the GetSchedule operation: {msg}")
+        print("aws --query 'Schedules[].Name' scheduler list-schedules")
+    else:
+        raise(e)
+
+    exit(0)
+
+
+##################################################
+# Get now + FUTURE seconds
+
+now = datetime.datetime.now(datetime.timezone.utc)
+now = now + datetime.timedelta(seconds = FUTURE)
+
+
+##################################################
+# Create schedule
+
+new_schedule = {
+    "Name": f"{old_schedule['Name']}-{int(now.timestamp())}"
+    ,"Target": old_schedule['Target']
+    ,"ScheduleExpression": f"at({now.strftime('%Y-%m-%dT%X')})"
+    ,"ScheduleExpressionTimezone": 'UTC'
+    ,"FlexibleTimeWindow": { "Mode": "OFF" }
+}
+
+if 'debug' in globals() and debug:
+    print(f"boto3.client('scheduler').create_schedule({new_schedule})")
+else:
+    boto3.client('scheduler').create_schedule(**new_schedule)
