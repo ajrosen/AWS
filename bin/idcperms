@@ -1,0 +1,125 @@
+#!/usr/bin/env ruby
+
+# Generate a CSV table mapping users, groups, accounts, and permission sets from IAM Identity Store
+
+require 'aws-sdk-identitystore'
+require 'aws-sdk-organizations'
+require 'aws-sdk-ssoadmin'
+
+# A GroupMembership contains a group and an array of users
+GroupMembership = Struct.new('GroupMembership', :group, :users)
+
+is = Aws::IdentityStore::Client.new
+org = Aws::Organizations::Client.new
+sso = Aws::SSOAdmin::Client.new
+
+ACCOUNTS = org.list_accounts.accounts
+INSTANCES = sso.list_instances.instances
+
+##################################################
+
+puts 'UserID,User,GroupID,Group,AccountID,Account,PermissionSet'
+
+# For each instance
+INSTANCES.each do |instance|
+  # Get the users
+  users = is.list_users({ identity_store_id: instance.identity_store_id }).users
+
+  # Get the groups
+  groups = is.list_groups({ identity_store_id: instance.identity_store_id }).groups
+
+  # Get the group memberships
+  group_memberships = []
+
+  groups.each do |group|
+    memberships = is.list_group_memberships(
+      { identity_store_id: instance.identity_store_id,
+        group_id: group.group_id }).group_memberships
+
+    group_members = []
+
+    memberships.each do |membership|
+      group_members += users.select { |user| user.user_id == membership.member_id.user_id }
+    end
+
+    group_memberships.push(Struct::GroupMembership.new(group, group_members))
+  end
+
+  # Get the permission sets
+  sets = sso.list_permission_sets({ instance_arn: instance.instance_arn }).permission_sets
+
+  # For each account
+  ACCOUNTS.each do |account|
+    # For each permission set
+    sets.each do |set|
+      pset = sso.describe_permission_set(
+        { instance_arn: instance.instance_arn,
+          permission_set_arn: set }).permission_set
+
+      # Get the assignments of this permission set to this account
+      assignments = sso.list_account_assignments(
+        { instance_arn: instance.instance_arn,
+          permission_set_arn: set,
+          account_id: account.id }).account_assignments
+
+      principals = []
+
+      # For each assignment
+      assignments.each do |assignment|
+        case assignment.principal_type
+        when 'USER'
+          # Add the assigned user
+          users.each do |user|
+            principals.append(
+              { user: user,
+                group: nil,
+                account: account,
+                pset: pset }) if user.user_id == assignment.principal_id
+          end
+
+        when 'GROUP'
+          gm = group_memberships.select { |m| m[:group].group_id == assignment.principal_id }
+
+          gm.each do |g|
+            # Add the group members
+            g.users.each do |user|
+              principals.append(
+                { user: user,
+                  group: g.group,
+                  account: account,
+                  pset: pset })
+            end
+          end
+        end
+      end
+
+      # Print it
+      principals.each do |principal|
+        row = ''
+
+        # User
+        row += principal[:user].user_id if principal[:user]
+        row += ','
+        row += principal[:user].user_name if principal[:user]
+        row += ','
+
+        # Group
+        row += principal[:group].group_id if principal[:group]
+        row += ','
+        row += principal[:group].display_name if principal[:group]
+        row += ','
+
+        # Account
+        row += principal[:account].id if principal[:account]
+        row += ','
+        row += principal[:account].name if principal[:account]
+        row += ','
+
+        # Permission Set
+        row += pset.name
+
+        puts row
+      end
+    end
+  end
+end
