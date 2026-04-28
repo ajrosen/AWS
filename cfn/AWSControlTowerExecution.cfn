@@ -1,0 +1,29 @@
+---
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWSControlTowerExecution IAM Role
+
+Parameters:
+  ManagementAccountId:
+    Type: String
+    Description: The account number of the management account
+    AllowedPattern: ^[0-9]{12}$
+
+Resources:
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${ManagementAccountId}:root
+              Service:
+                - controltower.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AdministratorAccess'
