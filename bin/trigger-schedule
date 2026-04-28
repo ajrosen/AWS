@@ -29,13 +29,9 @@ else:
 # Get schedule
 
 try:
-    if 'debug' in globals() and debug:
-        with open(f'/Users/ajr/resp.json', 'r') as file:
-            old_schedule = json.loads(file.read())
-    else:
-        old_schedule = boto3.client('scheduler').get_schedule(
-            Name = schedule_name
-        )
+    old_schedule = boto3.client('scheduler').get_schedule(
+        Name = schedule_name
+    )
 
 except botocore.exceptions.ClientError as e:
     code = e.response['Error']['Code']
@@ -66,9 +62,7 @@ new_schedule = {
     ,"ScheduleExpression": f"at({now.strftime('%Y-%m-%dT%X')})"
     ,"ScheduleExpressionTimezone": 'UTC'
     ,"FlexibleTimeWindow": { "Mode": "OFF" }
+    ,"ActionAfterCompletion": "DELETE"
 }
 
-if 'debug' in globals() and debug:
-    print(f"boto3.client('scheduler').create_schedule({new_schedule})")
-else:
-    boto3.client('scheduler').create_schedule(**new_schedule)
+print(json.dumps(boto3.client('scheduler').create_schedule(**new_schedule)))
