@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash -
+#!/opt/homebrew/bin/bash -
 
 [ "${1}" == "--profile" ] && shift
 
@@ -6,7 +6,7 @@ AWS_PROFILE=${1:-${AWS_PROFILE}}
 AWS_DEFAULT_OUTPUT=json
 
 log() {
-    echo $* > /dev/null
+    echo $* # > /dev/null
 }
 
 login() {
